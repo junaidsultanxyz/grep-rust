@@ -1,4 +1,8 @@
-use std::env;
+use std::{
+    env,
+    fs::File,
+    io::{BufRead, BufReader},
+};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -54,11 +58,48 @@ impl Config {
     }
 }
 
+fn grep(reader: &mut BufReader<File>, pattern: &str, case_insensitive: bool) {
+    let mut line = String::new();
+
+    while let Ok(bytes_read) = reader.read_line(&mut line) {
+        // reached end of file
+        if bytes_read == 0 {
+            break;
+        }
+
+        let matched = if case_insensitive {
+            line.to_lowercase().contains(&pattern.to_lowercase())
+        } else {
+            line.contains(pattern)
+        };
+
+        if matched {
+            print!("{}", line);
+        }
+
+        line.clear();
+    }
+}
+
+fn grep_file(file: &str, config: &Config) {
+    match File::open(file) {
+        Ok(file) => {
+            let mut reader = BufReader::new(file);
+            grep(&mut reader, &config.pattern, config.case_insensitive);
+        }
+        Err(_) => {
+            println!("File {} does not exist, or cannot be opened.", file);
+        }
+    }
+}
+
 fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
     let config = Config::new(&args)?;
 
-    dbg!(&config);
+    for file in &config.files {
+        grep_file(file, &config);
+    }
 
     Ok(())
 }
